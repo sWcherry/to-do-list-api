@@ -14,8 +14,8 @@
 
 1. Клонування репозиторію:
 ```bash
-git clone https://github.com/username/comment-system-api.git
-cd comment-system-api
+git clone https://github.com/sWcherry/to-do-list-api.git
+cd to-do-list-api
 ```
 2. Створення віртуального середовища:
 ```bash
