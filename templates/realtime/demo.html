@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+
+{% block title %}Real-time Demo - To-Do List{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h2>Real-time Демонстрація</h2>
+        <p class="text-muted">Ця сторінка демонструє роботу real-time функцій через WebSocket.</p>
+        
+        <div class="col-md-7">
+        <h3>Мої задачі</h3>
+
+        <div id="tasks-container">
+            {% for task in tasks %}
+            <div class="card mb-2" data-task-id="{{ task.id }}">
+                <div class="card-body">
+                    
+                    <input class="form-control mb-1 title"
+                           value="{{ task.title }}"
+                           {% if task.owner != user %}disabled{% endif %}>
+
+                    <textarea class="form-control mb-1 description"
+                        {% if task.owner != user %}disabled{% endif %}>
+                        {{ task.description }}
+                    </textarea>
+
+                    <select class="form-select mb-1 assigned"
+                            {% if task.owner != user %}disabled{% endif %}>
+                        <option value="">-- Не призначено --</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}"
+                            {% if task.assigned_to and task.assigned_to.id == u.id %}selected{% endif %}>
+                            {{ u.full_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    
+                    <input type="datetime-local"
+                           class="form-control mb-1 deadline"
+                           value="{{ task.deadline|date:'Y-m-d\\TH:i' }}"
+                           {% if task.owner != user %}disabled{% endif %}>
+
+                    <select class="form-select mb-2 status">
+                        <option value="Assigned" {% if task.status == 'Assigned' %}selected{% endif %}>Assigned</option>
+                        <option value="Completed" {% if task.status == 'Completed' %}selected{% endif %}>Completed</option>
+                    </select>
+
+                    <button class="btn btn-sm btn-primary save-btn"
+                            data-task-id="{{ task.id }}">
+                        Зберегти
+                    </button>
+
+                    {% if task.owner == user %}
+                    <button class="btn btn-sm btn-danger delete-btn"
+                            data-task-id="{{ task.id }}">
+                        Видалити
+                    </button>
+                    {% endif %}
+
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- CREATE TASK -->
+    <div class="col-md-5">
+        <h4>Створити задачу</h4>
+
+        <input id="new-title" class="form-control mb-2" placeholder="Назва">
+
+        <textarea id="new-description" class="form-control mb-2"
+                  placeholder="Опис (необов'язково)"></textarea>
+
+        <select id="new-assigned" class="form-select mb-2">
+            <option value="">-- Не призначено --</option>
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.full_name }}</option>
+            {% endfor %}
+        </select>
+
+        <input id="new-deadline" type="datetime-local"
+               class="form-control mb-2">
+
+        <button id="create-btn" class="btn btn-success">
+            Створити
+        </button>
+
+        <hr>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i> Онлайн користувачі</h5>
+            </div>
+            <div class="card-body">
+                <div id="online-users-list">
+                    <!-- Список буде оновлюватися через WebSocket -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5><i class="fas fa-bell"></i> Сповіщення</h5>
+            </div>
+            <div class="card-body">
+                <div id="notifications-list">
+                    <p class="text-muted">Сповіщення з'являться тут...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Розширення WebSocket функціональності для демо сторінки
+    function handleTaskCreate(task) {
+        addTask(task);
+    }
+
+    function handleTaskUpdate(task) {
+        let el = document.querySelector(`[data-task-id="${task.id}"]`);
+
+        if (!el) {
+            location.reload(); 
+            return;
+        }
+
+        const updateField = (selector, value) => {
+            const field = el.querySelector(selector);
+            if (field) {
+                field.value = value;
+            }
+        };
+
+        updateField('.title', task.title);
+        updateField('.description', task.description);
+        updateField('.assigned', task.assigned_to); 
+        updateField('.deadline', task.deadline);
+        updateField('.status', task.status);
+        
+        el.classList.add('border-success');
+        setTimeout(() => el.classList.remove('border-success'), 2000);
+    }
+
+    function handleTaskDelete(taskId) {
+        const el = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (el) el.remove();
+    }
+
+    function generateUserOptions(selectedId) {
+        const sourceSelect = document.getElementById('new-assigned');
+        if (!sourceSelect) return '<option value="">-- Не призначено --</option>';
+
+        let optionsHtml = '';
+        Array.from(sourceSelect.options).forEach(opt => {
+            const isSelected = opt.value == selectedId ? 'selected' : '';
+            optionsHtml += `<option value="${opt.value}" ${isSelected}>${opt.text}</option>`;
+        });
+        
+        return optionsHtml;
+    }
+
+    function addTask(task) {
+        const container = document.getElementById('tasks-container');
+        const currentUserId = "{{ request.user.id }}"; 
+
+        const el = document.createElement('div');
+        el.className = 'card mb-2';
+        el.setAttribute('data-task-id', task.id);
+
+        const isOwner = task.owner == currentUserId || task.owner_id == currentUserId; 
+        const disabledAttr = isOwner ? '' : 'disabled';
+
+        el.innerHTML = `
+            <div class="card-body">
+                <input class="form-control mb-1 title" value="${task.title}" ${disabledAttr}>
+                
+                <textarea class="form-control mb-1 description" ${disabledAttr}>${task.description || ''}</textarea>
+
+                <select class="form-select mb-1 assigned" ${disabledAttr}>
+                    ${generateUserOptions(task.assigned_to ? (task.assigned_to.id || task.assigned_to) : '')}
+                </select>
+                
+                <input type="datetime-local" 
+                    class="form-control mb-1 deadline" 
+                    value="${task.deadline ? task.deadline.substring(0, 16) : ''}" ${disabledAttr}>
+
+                <select class="form-select mb-2 status">
+                    <option value="Assigned" ${task.status === 'Assigned' ? 'selected' : ''}>Assigned</option>
+                    <option value="Completed" ${task.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                </select>
+
+                <button class="btn btn-sm btn-primary save-btn" data-task-id="${task.id}">
+                    Зберегти
+                </button>
+
+                ${isOwner ? `
+                    <button class="btn btn-sm btn-danger delete-btn" data-task-id="${task.id}">
+                        Видалити
+                    </button>
+                ` : ''}
+            </div>
+        `;
+
+        container.prepend(el);
+    }
+
+    // Завантаження онлайн користувачів
+    function loadOnlineUsers() {
+        fetch('/api/realtime/online-users/')
+        .then(response => response.json())
+        .then(data => {
+
+            const container = document.getElementById('online-users-list');
+            container.innerHTML = '';
+            
+            data.results.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.className = 'mb-2';
+                userElement.innerHTML = `
+                    <span class="online-indicator"></span>
+                    <strong>${user.full_name}</strong>
+                    <small class="text-muted d-block">${user.page_url || 'Невідома сторінка'}</small>
+                `;
+                container.appendChild(userElement);
+            });
+            
+            if (data.results.length === 0) {
+                container.innerHTML = '<p class="text-muted">Немає онлайн користувачів</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading online users:', error);
+        });
+    }
+    
+    // Завантаження сповіщень
+    function loadNotifications() {
+        fetch('/api/realtime/notifications/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('notifications-list');
+            container.innerHTML = '';
+            
+            data.results.slice(0, 5).forEach(notification => {
+                const notificationElement = document.createElement('div');
+                notificationElement.className = `alert alert-info alert-sm ${notification.is_read ? '' : 'border-primary'}`;
+                notificationElement.innerHTML = `
+                    <small><strong>${notification.title}</strong></small><br>
+                    <small>${notification.message}</small><br>
+                    <small class="text-muted">${new Date(notification.created_at).toLocaleString()}</small>
+                `;
+                container.appendChild(notificationElement);
+            });
+            
+            if (data.results.length === 0) {
+                container.innerHTML = '<p class="text-muted">Немає сповіщень</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading notifications:', error);
+        });
+    }
+    
+    // Утиліта для отримання CSRF токена
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // CREATE TASK
+    document.getElementById('create-btn').addEventListener('click', () => {
+        const title = document.getElementById('new-title').value.trim();
+
+        if (!title) {
+            showNotification('Назва обовʼязкова', 'warning');
+            return;
+        }
+
+        const data = {
+            title: title,
+            description: document.getElementById('new-description').value.trim() || null,
+            assigned_to: document.getElementById('new-assigned').value || null,
+            deadline: document.getElementById('new-deadline').value || null
+        };
+
+        fetch('/api/tasks/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(task => {
+
+            // очистка форми
+            document.getElementById('new-title').value = '';
+            document.getElementById('new-description').value = '';
+            document.getElementById('new-assigned').value = '';
+            document.getElementById('new-deadline').value = '';
+
+            // WebSocket подія СТВОРЕННЯ
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'task_created',
+                    task_id: task.id
+                }));
+            }
+
+            showNotification('Задачу створено', 'success');
+        })
+        .catch(() => {
+            showNotification('Помилка створення задачі', 'danger');
+        });
+    });
+
+    // UPDATE TASK
+    document.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('save-btn')) return;
+
+        const btn = e.target;
+        const card = btn.closest('.card'); 
+        
+        if (!card) {
+            console.error("Не вдалося знайти контейнер .card");
+            return;
+        }
+
+        const taskId = card.getAttribute('data-task-id');
+
+        const data = {};
+
+        const titleEl = card.querySelector('.title');
+        const descEl = card.querySelector('.description');
+        const assignedEl = card.querySelector('.assigned');
+        const statusEl = card.querySelector('.status');
+        const deadlineEl = card.querySelector('.deadline');
+
+        if (titleEl) data.title = titleEl.value;
+        if (descEl) data.description = descEl.value;
+        if (assignedEl) data.assigned_to = assignedEl.value || null;
+        if (statusEl) data.status = statusEl.value;
+        if (deadlineEl) data.deadline = deadlineEl.value || null;
+
+        fetch(`/api/tasks/${taskId}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(result => {
+            showNotification('Зміни збережено', 'success');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'task_updated', 
+                    task_id: taskId
+                }));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showNotification('Помилка оновлення', 'danger');
+        });
+    });
+
+    // DELETE TASK
+    document.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('delete-btn')) return;
+
+        if (!confirm('Ви впевнені, що хочете видалити це завдання?')) return;
+
+        const btn = e.target;
+        const taskId = btn.dataset.taskId;
+        const card = btn.closest('.card');
+
+        fetch(`/api/tasks/${taskId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                if (card) card.remove();
+
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'task_deleted',
+                        task_id: taskId
+                    }));
+                }
+                showNotification('Завдання видалено', 'info');
+            } else {
+                showNotification('Помилка видалення', 'danger');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    });
+
+    // Завантажити дані при завантаженні сторінки
+    document.addEventListener('DOMContentLoaded', function() {
+        loadOnlineUsers();
+        loadNotifications();
+        
+        // Оновлювати дані кожні 30 секунд
+        setInterval(loadOnlineUsers, 30000);
+        setInterval(loadNotifications, 60000);
+    });
+</script>
+{% endblock %}

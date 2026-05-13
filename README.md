@@ -1,16 +1,39 @@
-# To-Do List API
+# To-Do List API with Real-time Features
 
 **Студентка:** Панченко Вікторія Володимирівна  
 **Група:** КВ-52мп  
-**Лабораторна робота:** №1 - Розробка серверної частини Web-додатка  
+**Лабораторна робота:** №2 - Організація спільної роботи користувачів Web-додатка  
 
 ## Опис завдання
-Розробити серверну частину Web-додатку для системи коментарів з використанням Django та Django REST Framework.
+Розробити функції обміну даними між користувачами Web-додатка у реальному часі та адміністрування користувачами, використовуючи Django Channels та WebSocket.
 
 ## Посилання на звіт
-[Звіт на Google Drive](https://docs.google.com/document/d/1cm9oZ1uognkn4AOTeoR1GKdhWPuN_nqCEyNa4QQ9amE/edit?usp=sharing)
+[Звіт на Google Drive](https://docs.google.com/document/d/1LpK2VqNtr33U3zs6IWpVS_dqQLZ_eKUpJoijLDdHqBg/edit?usp=sharing)
+
+## Real-time функції
+- ✅ WebSocket з'єднання для всіх авторизованих користувачів
+- ✅ Відстеження онлайн користувачів в реальному часі
+- ✅ Миттєве відображення нових завдань
+- ✅ Real-time оновлення та видалення завдань
+- ✅ Система персональних сповіщень
+- ✅ Адміністративна панель для моніторингу онлайн користувачів
+- ✅ Логування активності користувачів
+
+## Технології
+- Python 3.13
+- Django 4.2
+- Django Channels 4.0
+- Redis 7.0
+- WebSocket
+- Bootstrap 5
 
 ## Встановлення та запуск
+
+### Вимоги
+- Python 3.11+
+- Redis Server
+
+### Кроки встановлення
 
 1. Клонування репозиторію:
 ```bash
@@ -27,37 +50,50 @@ venv\Scripts\activate     # Windows
 ```bash
 pip install -r requirements.txt
 ```
-4. Міграції бази даних:
+4. Запуск Redis:
+```bash
+# Ubuntu/Debian
+sudo systemctl start redis-server
+
+# macOS
+brew services start redis
+
+# Windows/Docker
+docker run -d -p 6379:6379 redis:alpine
+```
+5. Міграції бази даних:
 ```bash
 python manage.py migrate
 python manage.py createsuperuser
 ```
-5. Запуск сервера:
+6. Запуск сервера:
 ```bash
 python manage.py runserver
 ```
 
-## API Документація
+## Використання
 
-http://127.0.0.1:8000/api/docs/
+### Веб-інтерфейс
+- Головна сторінка: http://127.0.0.1:8000/
+- Real-time демо: http://127.0.0.1:8000/realtime-demo/
+- Адмін панель: http://127.0.0.1:8000/admin-dashboard/
+- Django Admin: http://127.0.0.1:8000/admin/
 
-## Основні endpoints
+### API Endpoints
+- `GET /api/realtime/online-users/` - Список онлайн користувачів
+- `GET /api/realtime/activity/` - Активність користувачів
+- `GET /api/realtime/notifications/` - Сповіщення користувача
+- `GET /api/realtime/stats/` - Статистика онлайн користувачів
 
-- `POST /api/auth/register/` - Реєстрація
-- `POST /api/auth/login/` - Вхід
-- `GET /api/auth/profile/` - Перегляд профілю
-- `PATCH /api/auth/profile/` - Часткове оновлення профілю
-- `DELETE /api/auth/profile/` - Видалення профілю
-- `GET /api/tasks/` - Список завдань
-- `POST /api/tasks/create/` - Створення завдання
-- `GET /api/tasks/{id}/` - Деталі завдання
-- `PATCH /api/tasks/{id}/` - Часткове оновлення завдання
-- `DELETE /api/tasks/{id}/` - Видалення завдання
-- `GET /api/info/` - Інформація про додаток
+### WebSocket
+- URL: `ws://127.0.0.1:8000/ws/realtime/`
+- Автоматичне підключення для авторизованих користувачів
+- Підтримка ping/pong для підтримки з’єднання
 
-## Технології
-
-- Python 3.13
-- Django 4.2
-- Django REST Framework 3.14
-- SQLite (база даних)
+### Демонстрація
+1. Відкрийте кілька вкладок браузера
+2. Увійдіть різними користувачами
+3. Перейдіть на сторінку Real-time Demo
+4. Додайте завдання з призначенням користувача в одній вкладці
+5. Спостерігайте за оновленнями в інших вкладках
+6. Перевірте адміністративну панель для моніторингу онлайн користувачів

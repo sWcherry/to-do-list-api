@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Головна - To-Do List{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i> Онлайн користувачі</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-center">
+                    <span class="badge bg-success fs-6">{{ online_count }}</span>
+                    <br>
+                    <small class="text-muted">користувачів онлайн</small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not user.is_authenticated %}
+<div class="alert alert-info mt-4">
+    <h4><i class="fas fa-info-circle"></i> Вітаємо в To-Do List!</h4>
+    <p>Це демонстраційний додаток для лабораторної роботи №2 з курсу "Технологія розробки Web-додатків".</p>
+    <p><a href="/admin/login/" class="btn btn-primary">Увійдіть</a> для доступу до real-time функцій.</p>
+</div>
+{% endif %}
+{% endblock %}

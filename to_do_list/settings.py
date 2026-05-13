@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'daphne',
     'django.contrib.staticfiles',
     'django_extensions',
 
@@ -45,11 +46,13 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'drf_spectacular',
+    'channels',
     
     # Local apps
     'users.apps.UsersConfig',
     'tasks.apps.TasksConfig',
     'api.apps.ApiConfig',
+    'realtime.apps.RealtimeConfig',
 ]
 
 MIDDLEWARE = [
@@ -83,6 +86,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'to_do_list.wsgi.application'
 
+# ASGI Application
+ASGI_APPLICATION = 'to_do_list.asgi.application'
+
+# Channel Layers (Redis)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+
+# WebSocket settings
+WEBSOCKET_URL = '/ws/'
+
+# Session settings для WebSocket аутентифікації
+SESSION_COOKIE_AGE = 86400  # 24 години
+SESSION_SAVE_EVERY_REQUEST = True
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -174,7 +193,12 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 # Custom user model
 AUTH_USER_MODEL = 'users.CustomUser'
+
+LOGIN_REDIRECT_URL = 'home' 
+LOGOUT_REDIRECT_URL = 'home'

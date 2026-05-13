@@ -1,3 +1,4 @@
+import email
 from rest_framework import serializers
 from django.contrib.auth import get_user_model, authenticate
 from tasks.models import Task
@@ -23,6 +24,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
+        email = validated_data['email']
+        validated_data['username'] = email
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()
@@ -61,7 +64,11 @@ class TaskSerializer(serializers.ModelSerializer):
     """Серіалізатор для завдань"""
 
     owner = UserProfileSerializer(read_only=True)
-    assigned_to = UserProfileSerializer(read_only=True)
+    assigned_to = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Task

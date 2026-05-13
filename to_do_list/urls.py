@@ -23,10 +23,15 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
+    path('accounts/', include('django.contrib.auth.urls')),
+    path('api/realtime/', include('realtime.urls')),
     
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
+    # Static pages
+    path('', include('realtime.web_urls')),  # Веб-сторінки
 ]
 
 # Serve media files in development

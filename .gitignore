@@ -16,6 +16,9 @@ local_settings.py
 db.sqlite3
 media/
 
+# Redis dump
+dump.rdb
+
 # IDE
 .vscode/
 .idea/
